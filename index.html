@@ -21,6 +21,7 @@
         }
         .container {
             padding: 20px;
+            max-width: 400px;
         }
         h1 {
             font-size: 24px;
@@ -30,6 +31,7 @@
             color: #a0a0a0;
             font-size: 14px;
             margin-bottom: 30px;
+            line-height: 1.5;
         }
         /* Простой анимированный спиннер загрузки */
         .spinner {
@@ -39,7 +41,7 @@
             border-radius: 50%;
             border-top-color: #4CAF50;
             animation: spin 1s ease-in-out infinite;
-            margin: 0 auto;
+            margin: 0 auto 20px auto;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -58,9 +60,9 @@
 <body>
 
     <div class="container">
-        <div class="spinner"></div>
-        <h1>Открываем приложение...</h1>
-        <p>Пожалуйста, подождите. Сейчас откроется приложение для импорта подписки.</p>
+        <div id="spinner" class="spinner"></div>
+        <h1 id="mainTitle">Открываем приложение...</h1>
+        <p id="mainText">Пожалуйста, подождите. Сейчас откроется приложение для импорта подписки.</p>
 
         <div id="errorBox" class="error-message">
             Не удалось автоматически открыть приложение. <br><br>
@@ -78,30 +80,54 @@
             const urlParams = new URLSearchParams(window.location.search);
             const redirectUrl = urlParams.get('url');
 
+            // Определяем мобильное ли это устройство с помощью User-Agent
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
             if (redirectUrl) {
-                // 1. Пытаемся перенаправить пользователя по deeplink
+                // 1. Инициируем переход по deeplink
                 window.location.href = redirectUrl;
 
-                // 2. Ждем 1 секунду (чтобы система успела перехватить ссылку) и закрываем окно
-                setTimeout(function() {
-                    try {
-                        // Метод закрытия для Telegram
-                        if (window.Telegram && window.Telegram.WebApp) {
-                            window.Telegram.WebApp.close();
+                if (isMobile) {
+                    // === ЛОГИКА ДЛЯ ТЕЛЕФОНОВ ===
+                    // Ждем 1.5 секунды и закрываем окно
+                    setTimeout(function() {
+                        try {
+                            if (window.Telegram && window.Telegram.WebApp) {
+                                window.Telegram.WebApp.close();
+                            }
+                            window.close();
+                        } catch (e) {
+                            console.log("Не удалось закрыть окно автоматически");
                         }
-                        // Запасной метод для обычных браузеров
-                        window.close();
-                    } catch (e) {
-                        console.log("Не удалось закрыть окно автоматически");
-                    }
-                }, 1000);
+                    }, 1500);
 
-                // 3. Если через 3.5 секунды мы все еще на этой странице (например, приложение не установлено),
-                // показываем сообщение об ошибке.
-                setTimeout(function() {
-                    document.getElementById('errorBox').style.display = 'block';
-                }, 3500);
+                    // Если не закрылось через 3.5 секунды - показываем ошибку
+                    setTimeout(function() {
+                        document.getElementById('errorBox').style.display = 'block';
+                    }, 3500);
+
+                } else {
+                    // === ЛОГИКА ДЛЯ КОМПЬЮТЕРОВ (ПК) ===
+                    // На ПК браузеры показывают окно "Открыть приложение?".
+                    // Если мы закроем вкладку скриптом, окно пропадет, поэтому мы НЕ закрываем её.
+
+                    document.getElementById('mainTitle').innerText = "Подтвердите действие";
+                    document.getElementById('mainText').innerHTML = "В верхней части браузера должно появиться окно.<br>Нажмите <b>«Открыть»</b> или <b>«Разрешить»</b>, чтобы передать настройки в VPN-клиент.<br><br><i>Эту вкладку можно будет закрыть вручную.</i>";
+
+                    // Останавливаем спиннер через 2 секунды (так как дальше загрузки нет, ждем действий юзера)
+                    setTimeout(function() {
+                        document.getElementById('spinner').style.display = 'none';
+                    }, 2000);
+
+                    // Показываем ошибку только если прошло много времени (10 сек)
+                    setTimeout(function() {
+                        document.getElementById('errorBox').innerHTML = "Если приложение не открылось, убедитесь, что оно установлено на вашем ПК.";
+                        document.getElementById('errorBox').style.display = 'block';
+                    }, 10000);
+                }
+
             } else {
+                document.getElementById('spinner').style.display = 'none';
                 document.getElementById('errorBox').innerHTML = "Ошибка: Ссылка для подключения не найдена.";
                 document.getElementById('errorBox').style.display = 'block';
             }
